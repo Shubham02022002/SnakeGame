@@ -10,6 +10,4 @@ export enum Direction {
   Down,
 }
 
-export interface SnakeProps {
-  snake: Coordinate[];
-}
+export type GameState = "idle" | "running" | "paused" | "gameover";

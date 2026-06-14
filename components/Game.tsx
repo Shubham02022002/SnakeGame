@@ -1,53 +1,120 @@
-import { Colors } from "@/styles/colors";
-import React, { JSX, useState } from "react";
-import { StyleSheet, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { useSharedValue } from "react-native-reanimated";
+import React from "react";
+import {
+  Dimensions,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Snake from "./Snake";
-import { Coordinate, Direction } from "./types";
+import { useSnakeEngine } from "../hooks/useSnakeEngine";
+import { Colors } from "../styles/colors";
+import GameBoard from "./GameBoard";
+import GameHUD from "./GameHUD";
 
-const SNAKE_INITIAL_POS = [{ x: 5, y: 5 }];
-const FOOD_INITIAL_POS = { x: 5, y: 20 };
-const GAME_BOUNDS = { xMin: 0, xMax: 35, yMin: 0, yMax: 63 };
-const MOVE_INTERVAL = 50;
-const SCORE_INCREMENTER = 10;
+const CELL_SIZE = 20;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-const Game = (): JSX.Element => {
-  const [direction, setDirection] = useState<Direction>(Direction.Right);
-  const [snake, setSnake] = useState<Coordinate[]>(SNAKE_INITIAL_POS);
-  const [isPaused, setIsPaused] = useState<boolean>(false);
+const BOARD_PADDING = 12;
+const HUD_HEIGHT = 140;
+const FOOTER_HEIGHT = 70;
 
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  // Define the pan gesture
-  const panGesture = Gesture.Pan().onUpdate((event) => {
-    translateX.value = event.translationX;
-    translateY.value = event.translationY;
-    // console.log(translateX.value, translateY.value)
-    if (Math.abs(translateX.value) > Math.abs(translateY.value)) {
-      setDirection(translateX.value > 0 ? Direction.Right : Direction.Left);
-    } else {
-      setDirection(translateY.value > 0 ? Direction.Up : Direction.Down);
-    }
-  });
+const BOARD_WIDTH =
+  Math.floor((SCREEN_WIDTH - BOARD_PADDING * 2) / CELL_SIZE) * CELL_SIZE;
+const BOARD_HEIGHT =
+  Math.floor((SCREEN_HEIGHT - HUD_HEIGHT - FOOTER_HEIGHT - 60) / CELL_SIZE) *
+  CELL_SIZE;
+
+const GRID_X = Math.floor(BOARD_WIDTH / CELL_SIZE);
+const GRID_Y = Math.floor(BOARD_HEIGHT / CELL_SIZE);
+
+export default function Game() {
+  const {
+    snake,
+    food,
+    score,
+    highScore,
+    status,
+    handleSwipe,
+    restart,
+    togglePause,
+  } = useSnakeEngine(GRID_X, GRID_Y);
+
+  const onGestureEvent = (event: any) => {
+    const { translationX, translationY } = event.nativeEvent;
+    handleSwipe(translationX, translationY);
+  };
 
   return (
-    <GestureDetector gesture={panGesture}>
-      <SafeAreaView style={styles.container}>
-        <View>
-          <Snake snake={snake} />
-        </View>
-      </SafeAreaView>
-    </GestureDetector>
-  );
-};
+    <SafeAreaView style={styles.container}>
+      <GameHUD score={score} highScore={highScore} width={BOARD_WIDTH} />
 
-export default Game;
+      <GameBoard
+        width={BOARD_WIDTH}
+        height={BOARD_HEIGHT}
+        cellSize={CELL_SIZE}
+        snake={snake}
+        food={food}
+        status={status}
+        score={score}
+        onGesture={onGestureEvent}
+        onRestart={restart}
+        onTogglePause={togglePause}
+      />
+
+      <View style={styles.controls}>
+        {status !== "idle" && (
+          <>
+            <TouchableOpacity
+              onPress={togglePause}
+              disabled={status === "gameover"}
+              style={[
+                styles.bottomButton,
+                status === "gameover" && styles.disabledButton,
+              ]}
+            >
+              <Text style={styles.bottomButtonText}>
+                {status === "running" ? "PAUSE" : "RESUME"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={restart} style={styles.bottomButton}>
+              <Text style={styles.bottomButtonText}>RESET</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </SafeAreaView>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+  },
+  controls: {
+    flexDirection: "row",
+    gap: 16,
+    width: BOARD_WIDTH,
+    height: FOOTER_HEIGHT,
+    alignItems: "center",
+  },
+  bottomButton: {
+    flex: 1,
+    backgroundColor: "#334155",
+    height: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  disabledButton: { opacity: 0.3 },
+  bottomButtonText: {
+    color: Colors.textLight,
+    fontWeight: "800",
+    fontSize: 14,
+    letterSpacing: 1,
   },
 });
